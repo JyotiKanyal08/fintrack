@@ -1,18 +1,18 @@
 from fastapi import FastAPI, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import extract
-from datetime import datetime
 
 from database import engine, get_db
 from auth import verify_token
 import models
+
 from routers import (
     transactions,
     bills,
     goals,
     budget,
-    buddy
+    buddy,
+    insights
 )
 
 models.Base.metadata.create_all(bind=engine)
@@ -32,6 +32,7 @@ app.include_router(bills.router)
 app.include_router(goals.router)
 app.include_router(budget.router)
 app.include_router(buddy.router)
+app.include_router(insights.router)
 
 
 @app.get("/")
@@ -50,13 +51,19 @@ def test_token(authorization: str = Header(...)):
 
 
 def get_or_create_user(uid: str, db: Session):
-    """Looks up the user by Firebase UID. Creates a new user row if one doesn't exist yet."""
     user = db.query(models.User).filter(models.User.id == uid).first()
+
     if not user:
-        user = models.User(id=uid, email="", name="", monthly_income=0)
+        user = models.User(
+            id=uid,
+            email="",
+            name="",
+            monthly_income=0
+        )
         db.add(user)
         db.commit()
         db.refresh(user)
+
     return user
 
 
@@ -67,54 +74,73 @@ def health_score(
 ):
     user = get_or_create_user(uid, db)
 
-    now = datetime.now()
+    # Get ALL transactions of this user
     txns = db.query(models.Transaction).filter(
-        models.Transaction.user_id == user.id,
-        extract('month', models.Transaction.date) == now.month
+        models.Transaction.user_id == user.id
     ).all()
 
-    income = sum(t.amount for t in txns if t.type == "income")
-    expense = sum(t.amount for t in txns if t.type == "expense")
+    print("Transactions Found:", len(txns))
 
-    savings_rate = (
-        ((income - expense) / income) * 100
-        if income > 0 else 0
+    income = sum(
+        t.amount
+        for t in txns
+        if t.type.lower() == "income"
     )
+
+    expense = sum(
+        t.amount
+        for t in txns
+        if t.type.lower() == "expense"
+    )
+
+    print("Income:", income)
+    print("Expense:", expense)
+
+    if income > 0:
+        savings_rate = ((income - expense) / income) * 100
+    else:
+        savings_rate = 0
 
     user_bills = db.query(models.Bill).filter(
         models.Bill.user_id == user.id
     ).all()
 
-    bill_score = (
-        sum(1 for b in user_bills if b.is_paid) / len(user_bills) * 100
-        if user_bills else 100
-    )
+    if len(user_bills) > 0:
+        bill_score = (
+            sum(1 for b in user_bills if b.is_paid)
+            / len(user_bills)
+        ) * 100
+    else:
+        bill_score = 100
 
     user_goals = db.query(models.Goal).filter(
         models.Goal.user_id == user.id
     ).all()
 
-    goal_score = (
-        sum(g.saved_amount / g.target_amount for g in user_goals) / len(user_goals) * 100
-        if user_goals else 50
-    )
+    if len(user_goals) > 0:
+        goal_score = (
+            sum(
+                g.saved_amount / g.target_amount
+                for g in user_goals
+            )
+            / len(user_goals)
+        ) * 100
+    else:
+        goal_score = 50
 
     score = (
         savings_rate * 0.5
         + bill_score * 0.3
         + goal_score * 0.2
     )
-    score = round(min(max(score, 0), 100))
-    
-    print("Bills:", len(user_bills))
-    print("Goals:", len(user_goals))
-    print("Score:", score)
+
+    score = round(max(0, min(score, 100)))
 
     return {
         "score": score,
         "savings_rate": round(savings_rate, 1),
         "bill_consistency": round(bill_score, 1),
         "goal_progress": round(goal_score, 1),
-        "income": income,
-        "expense": expense
+        "income": round(income, 2),
+        "expense": round(expense, 2)
     }
