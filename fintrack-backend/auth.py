@@ -1,28 +1,20 @@
-from fastapi import Header, HTTPException
 import firebase_admin
-from firebase_admin import credentials
-from firebase_admin import auth as firebase_auth
+from firebase_admin import credentials, auth as firebase_auth
+from fastapi import HTTPException, Header
+import json, os
 
-cred = credentials.Certificate("firebase-key.json")
+if os.getenv("FIREBASE_CREDENTIALS"):
+    cred_dict = json.loads(os.getenv("FIREBASE_CREDENTIALS"))
+    cred = credentials.Certificate(cred_dict)
+else:
+    cred = credentials.Certificate("firebase-key.json")
+
 firebase_admin.initialize_app(cred)
 
-from fastapi import HTTPException, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-
-security = HTTPBearer()
-
-def verify_token(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
-):
+def verify_token(authorization: str = Header(...)):
     try:
-        token = credentials.credentials
-
+        token = authorization.replace("Bearer ", "")
         decoded = firebase_auth.verify_id_token(token)
-
         return decoded["uid"]
-
     except Exception:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid token"
-        )
+        raise HTTPException(status_code=401, detail="Invalid token")
