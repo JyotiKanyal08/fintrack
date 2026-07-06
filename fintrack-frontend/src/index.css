@@ -1,13 +1,124 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* FinTrack Global Theme — Soft Rose Pink */
+/* All colors defined once here. Change here to update the entire app. */
+
+:root {
+  /* Core pink palette */
+  --pink-primary:    #f472b6;   /* main accent — soft rose pink */
+  --pink-dark:       #db2777;   /* darker pink — hover states, borders */
+  --pink-light:      #fbcfe8;   /* light pink — subtle highlights */
+  --pink-glow:       rgba(244, 114, 182, 0.15);  /* transparent pink — card glows */
+  --pink-border:     rgba(244, 114, 182, 0.3);   /* pink border color */
+
+  /* Background layers */
+  --bg-base:         #0d0a12;   /* deepest background — page bg */
+  --bg-card:         #1a1025;   /* card background */
+  --bg-card-hover:   #221530;   /* card on hover */
+  --bg-input:        #120d1c;   /* input fields */
+
+  /* Text colors */
+  --text-primary:    #fdf2f8;   /* near-white with pink warmth */
+  --text-secondary:  #e8b4d0;   /* muted pink-white */
+  --text-muted:      #9d7a8a;   /* dimmed text */
+
+  /* Semantic colors — keep these for financial meaning */
+  --color-income:    #34d399;   /* green — income, positive */
+  --color-expense:   #f87171;   /* red — expense, negative */
+  --color-warning:   #fbbf24;   /* amber — warnings */
+  --color-info:      #60a5fa;   /* blue — informational */
+
+  /* Chart colors — pink-forward palette */
+  --chart-1:  #f472b6;
+  --chart-2:  #c084fc;
+  --chart-3:  #fb7185;
+  --chart-4:  #f9a8d4;
+  --chart-5:  #e879f9;
+  --chart-6:  #a78bfa;
+  --chart-7:  #f43f5e;
+  --chart-8:  #fb923c;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: 'Inter', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  min-height: 100vh;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--pink-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--pink-primary);
+}
+
+/* Global input styling */
+input, select, textarea {
+  background:    var(--bg-input);
+  color:         var(--text-primary);
+  border:        1px solid var(--pink-border);
+  border-radius: 8px;
+  padding:       8px 12px;
+  font-family:   inherit;
+  font-size:     14px;
+  outline:       none;
+  transition:    border-color 0.2s, box-shadow 0.2s;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--pink-primary);
+  box-shadow:   0 0 0 3px var(--pink-glow);
+}
+
+input::placeholder {
+  color: var(--text-muted);
+}
+
+select option {
+  background: var(--bg-card);
+}
+
+/* Global button base */
+button {
+  cursor:      pointer;
+  font-family: inherit;
+  transition:  all 0.2s;
+}
+
+/* Primary button — used for main actions */
+.btn-primary {
+  background:    linear-gradient(135deg, #db2777, #f472b6);
+  border:        none;
+  border-radius: 8px;
+  color:         white;
+  padding:       10px 20px;
+  font-weight:   600;
+  font-size:     14px;
+  letter-spacing: 0.3px;
+}
+
+.btn-primary:hover {
+  transform:  translateY(-1px);
+  box-shadow: 0 4px 16px var(--pink-glow);
+}
+
+/* Card base */
+.card {
+  background:    var(--bg-card);
+  border-radius: 14px;
+  border:        1px solid var(--pink-border);
+  padding:       20px;
 }
