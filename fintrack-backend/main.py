@@ -1,18 +1,20 @@
 from fastapi import FastAPI, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import extract
+from datetime import datetime         
 
 from database import engine, get_db
 from auth import verify_token
 import models
-
 from routers import (
     transactions,
     bills,
     goals,
     budget,
     buddy,
-    insights
+    insights,
+    analytics
 )
 
 models.Base.metadata.create_all(bind=engine)
@@ -21,7 +23,9 @@ app = FastAPI(title="FinTrack API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", 
+        "https://fintrack-frontend.vercel.app", 
+        "https://*.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -33,6 +37,7 @@ app.include_router(goals.router)
 app.include_router(budget.router)
 app.include_router(buddy.router)
 app.include_router(insights.router)
+app.include_router(analytics.router)
 
 
 @app.get("/")
@@ -66,18 +71,32 @@ def get_or_create_user(uid: str, db: Session):
 
     return user
 
-
 @app.get("/health-score")
 def health_score(
     db: Session = Depends(get_db),
     uid: str = Depends(verify_token)
 ):
     user = get_or_create_user(uid, db)
-
-    # Get ALL transactions of this user
+    now  = datetime.now()
+    
     txns = db.query(models.Transaction).filter(
-        models.Transaction.user_id == user.id
+        models.Transaction.user_id == user.id,
+        extract('month', models.Transaction.date) == now.month,
+        extract('year',  models.Transaction.date) == now.year
     ).all()
+    
+    if not txns:
+        all_txns = db.query(models.Transaction).filter(
+            models.Transaction.user_id == user.id
+        ).order_by(models.Transaction.date.desc()).all()
+
+        if all_txns:
+            latest_date = all_txns[0].date
+            txns = [
+                t for t in all_txns
+                if t.date.month == latest_date.month
+                and t.date.year  == latest_date.year
+            ]
 
     print("Transactions Found:", len(txns))
 

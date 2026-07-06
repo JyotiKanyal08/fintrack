@@ -27,8 +27,10 @@ class Bill(Base):
     name        = Column(String)
     amount      = Column(Float)
     due_day     = Column(Integer)
-    is_paid     = Column(Boolean, default=False)
     category    = Column(String)
+    is_paid = Column(Boolean, default=False)
+    last_paid_month = Column(Integer, nullable=True)
+    last_paid_year = Column(Integer, nullable=True)
 
 class Goal(Base):
     __tablename__ = "goals"
