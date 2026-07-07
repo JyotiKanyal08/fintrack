@@ -8,13 +8,18 @@ from database import get_db
 from auth import verify_token
 import models
 
-rl_model = PPO.load("budget_optimizer_model")
+rl_model = None
+
+def get_model():
+    global rl_model
+    if rl_model is None:
+        rl_model = PPO.load("budget_optimizer_model")
+    return rl_model
 
 router = APIRouter(
     prefix="/budget",
     tags=["budget"]
 )
-
 
 @router.post("/")
 def add_budget(
@@ -36,7 +41,6 @@ def add_budget(
     db.refresh(budget)
 
     return budget
-
 
 @router.get("/")
 def get_budgets(
@@ -63,7 +67,8 @@ def recommend_budget(
     income = user.monthly_income or 35000
     state = np.array([income, food_spend, entertainment_spend, 10, 1], dtype=np.float32)
 
-    action, _ = rl_model.predict(state)
+    model = get_model()
+    action, _ = model.predict(state)
     action = np.clip(action, 0, None)
     action = action / (np.sum(action) + 1e-8)  
 
