@@ -2,7 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
-    apiKey: "AIzaSyClhiKQlceMVe3a1x6KIaQ57CIAAbFdXr4",
+    apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
     authDomain: "fintrack-6550f.firebaseapp.com",
     projectId: "fintrack-6550f",
     storageBucket: "fintrack-6550f.firebasestorage.app",
