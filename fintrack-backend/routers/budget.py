@@ -1,54 +1,37 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-
-from stable_baselines3 import PPO
-import numpy as np
-
 from database import get_db
 from auth import verify_token
 import models
 
+router = APIRouter(prefix="/budget", tags=["budget"])
+
 rl_model = None
+try:
+    import numpy as np
+    from stable_baselines3 import PPO
+    rl_model = PPO.load("budget_optimizer_model")
+    print("RL model loaded successfully")
+except Exception as e:
+    print(f"RL model not available: {e} — using rule-based fallback")
 
-def get_model():
-    global rl_model
-    if rl_model is None:
-        rl_model = PPO.load("budget_optimizer_model")
-    return rl_model
 
-router = APIRouter(
-    prefix="/budget",
-    tags=["budget"]
-)
+def rule_based_recommendation(income):
+    tips = {
+        "savings":       "Automate this — set up an auto-transfer right after payday.",
+        "food":          "Cooking 2-3 meals at home per week can reduce this significantly.",
+        "entertainment": "Keep this guilt-free, just track it monthly.",
+        "transport":     "Consider a monthly pass if you commute daily.",
+        "misc":          "Your buffer for unexpected costs."
+    }
+    return {
+        "savings":       {"percentage": 20.0, "amount": round(income * 0.20, 0), "tip": tips["savings"]},
+        "food":          {"percentage": 15.0, "amount": round(income * 0.15, 0), "tip": tips["food"]},
+        "entertainment": {"percentage": 10.0, "amount": round(income * 0.10, 0), "tip": tips["entertainment"]},
+        "transport":     {"percentage": 10.0, "amount": round(income * 0.10, 0), "tip": tips["transport"]},
+        "misc":          {"percentage": 5.0,  "amount": round(income * 0.05, 0), "tip": tips["misc"]},
+    }
 
-@router.post("/")
-def add_budget(
-    month: str,
-    category: str,
-    allocated: float,
-    db: Session = Depends(get_db),
-    uid: str = Depends(verify_token)
-
-):
-    budget = models.Budget(
-        month=month,
-        category=category,
-        allocated=allocated
-    )
-
-    db.add(budget)
-    db.commit()
-    db.refresh(budget)
-
-    return budget
-
-@router.get("/")
-def get_budgets(
-    db: Session = Depends(get_db),
-    uid: str = Depends(verify_token)
-
-):
-    return db.query(models.Budget).all()
 
 @router.get("/recommend")
 def recommend_budget(
@@ -56,43 +39,40 @@ def recommend_budget(
     uid: str = Depends(verify_token)
 ):
     user = db.query(models.User).filter(models.User.id == uid).first()
-
     txns = db.query(models.Transaction).filter(
         models.Transaction.user_id == uid,
         models.Transaction.type == "expense"
     ).all()
 
-    food_spend = sum(t.amount for t in txns if t.category == "Food") or 5000
+    food_spend          = sum(t.amount for t in txns if t.category == "Food") or 5000
     entertainment_spend = sum(t.amount for t in txns if t.category == "Entertainment") or 1500
-    income = user.monthly_income or 35000
-    state = np.array([income, food_spend, entertainment_spend, 10, 1], dtype=np.float32)
+    income              = user.monthly_income or 35000
 
-    model = get_model()
-    action, _ = model.predict(state)
-    action = np.clip(action, 0, None)
-    action = action / (np.sum(action) + 1e-8)  
-
-    labels = ["savings", "food", "entertainment", "transport", "misc"]
-
-    tips = {
-        "savings": "Aim to automate this — set up an auto-transfer right after payday so it never feels optional.",
-        "food": "Cooking 2-3 meals a week at home can meaningfully reduce this without feeling restrictive.",
-        "entertainment": "Keep this guilt-free, just track it so it doesn't quietly creep up month over month.",
-        "transport": "Consider a monthly metro/bus pass if you commute daily — usually cheaper than per-ride costs.",
-        "misc": "This is your buffer for unexpected costs — try not to dip into savings before this runs out.",
-    }
-
-    recommendation = {}
-    for label, pct in zip(labels, action):
-        pct_val = round(float(pct) * 100, 1)
-        amount_val = round(income * float(pct), 0)
-        recommendation[label] = {
-            "percentage": pct_val,
-            "amount": amount_val,
-            "tip": tips[label]
+    if rl_model is not None:
+        import numpy as np
+        state  = np.array([income, food_spend, entertainment_spend, 10, 1], dtype=np.float32)
+        action, _ = rl_model.predict(state)
+        action = action / (np.sum(action) + 1e-8)
+        labels = ["savings", "food", "entertainment", "transport", "misc"]
+        tips   = {
+            "savings":       "Automate this — set up an auto-transfer right after payday.",
+            "food":          "Cooking 2-3 meals at home per week can reduce this.",
+            "entertainment": "Keep this guilt-free, just track it monthly.",
+            "transport":     "Consider a monthly pass if you commute daily.",
+            "misc":          "Your buffer for unexpected costs."
         }
+        recommendation = {}
+        for label, pct in zip(labels, action):
+            recommendation[label] = {
+                "percentage": round(float(pct) * 100, 1),
+                "amount":     round(income * float(pct), 0),
+                "tip":        tips[label]
+            }
+    else:
+        recommendation = rule_based_recommendation(income)
 
     return {
-        "income_used": income,
-        "recommendation": recommendation
+        "income_used":    income,
+        "recommendation": recommendation,
+        "model_used":     "rl_model" if rl_model is not None else "rule_based"
     }
