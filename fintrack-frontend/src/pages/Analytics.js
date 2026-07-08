@@ -15,27 +15,6 @@ const COLORS = [
 
 const CHART_TYPES = ['Bar', 'Line', 'Area']
 
-// ── Custom pink tooltip ───────────────────────────────────────────────────────
-function PinkTooltip({ active, payload, label }) {
-    if (!active || !payload || !payload.length) return null
-    return (
-        <div style={{
-            background: 'var(--bg-card)',
-            border: '1px solid #f472b6',
-            borderRadius: 10,
-            padding: '10px 14px',
-            boxShadow: '0 4px 20px rgba(244,114,182,0.2)'
-        }}>
-            <p style={{ color: '#f9a8d4', fontSize: 12, marginBottom: 4, fontWeight: 600 }}>{label}</p>
-            {payload.map((p, i) => (
-                <p key={i} style={{ color: p.color || '#f472b6', fontSize: 13, fontWeight: 700 }}>
-                    {p.name}: ₹{parseFloat(p.value).toLocaleString('en-IN')}
-                </p>
-            ))}
-        </div>
-    )
-}
-
 // ── Summary card ──────────────────────────────────────────────────────────────
 function SummaryCard({ label, value, sub, color }) {
     return (

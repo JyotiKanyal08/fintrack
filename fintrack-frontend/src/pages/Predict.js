@@ -4,7 +4,7 @@ import { getPredictions } from '../api'
 import Navbar from '../components/Navbar'
 import {
     BarChart, Bar, XAxis, YAxis, Tooltip,
-    ResponsiveContainer, Cell, LabelList
+    ResponsiveContainer
 } from 'recharts'
 
 export default function Predict() {
