@@ -23,8 +23,10 @@ app = FastAPI(title="FinTrack API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", 
-        "https://fintrack-ahc4hwer0-jyoti-kanyal08.vercel.app"],
+    allow_origins=["http://localhost:3000",
+    "https://fintrack-nine-sepia.vercel.app",
+    "https://fintrack-ahc4hwer0-jyoti-kanyal08.vercel.app",
+    "https://*.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
