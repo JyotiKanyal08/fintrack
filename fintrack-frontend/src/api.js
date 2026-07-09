@@ -6,6 +6,7 @@ function getHeaders(token) {
     return {
     headers: {
         Authorization: `Bearer ${token}`,
+        withCredentials: false
     },
 };
 }
