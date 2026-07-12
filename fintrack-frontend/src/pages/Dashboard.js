@@ -41,7 +41,7 @@ export default function Dashboard() {
     const [recommendation, setRecommendation] = useState(null);
 
     useEffect(() => {
-        fetch('https://your-render-url.onrender.com/')
+        fetch('https://fintrack-ad7s.onrender.com/')
         .catch(() => {}) 
         
         const unsubscribe = auth.onAuthStateChanged(async (user) => {
