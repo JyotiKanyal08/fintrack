@@ -10,6 +10,15 @@ export default function Login() {
     const [error, setError]       = useState('')
     const navigate = useNavigate()
 
+    const handleDemoLogin = async () => {
+        try {
+            await signInWithEmailAndPassword(auth, 'demo@fintrack.com', 'Demo@1234')
+            navigate('/dashboard')
+        } catch (err) {
+            alert('Demo login failed: ' + err.message)
+        }
+    }
+
     const handleAuth = async () => {
         setError('')
         try {
@@ -97,10 +106,29 @@ export default function Login() {
                 <button
                     onClick={handleAuth}
                     className="btn-primary"
-                    style={{ width: '100%', padding: '12px', fontSize: 15 }}
+                    style={{ width: '100%', padding: '12px', fontSize: 15, marginBottom: 12 }}
                 >
                     {isNew ? 'Sign Up' : 'Login'}
                 </button>
+
+                <div style={{ textAlign: 'center', margin: '16px 0' }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>
+                        — or —
+                    </div>
+                    <button onClick={handleDemoLogin} style={{
+                        width: '100%', padding: '12px',
+                        borderRadius: 10, fontSize: 14, fontWeight: 700,
+                        border: '2px solid #f472b6',
+                        background: 'linear-gradient(135deg, rgba(244,114,182,0.2), rgba(244,114,182,0.05))',
+                        color: '#f9a8d4', cursor: 'pointer',
+                        letterSpacing: '0.5px'
+                    }}>
+                        ✨ Explore Demo — No signup needed
+                    </button>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6 }}>
+                        See 3 months of real financial data instantly
+                    </p>
+                </div>
 
                 <p
                     onClick={() => setIsNew(!isNew)}
