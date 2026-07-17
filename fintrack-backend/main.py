@@ -2,7 +2,8 @@ from fastapi import FastAPI, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import extract
-from datetime import datetime         
+from datetime import datetime    
+from firebase_admin import auth as firebase_auth     
 
 from database import engine, get_db
 from auth import verify_token
@@ -58,9 +59,15 @@ def get_or_create_user(uid: str, db: Session):
     user = db.query(models.User).filter(models.User.id == uid).first()
 
     if not user:
+        try:
+            firebase_user = firebase_auth.get_user(uid)
+            email = firebase_user.email or f"{uid}@fintrack.local"
+        except Exception:
+            email = f"{uid}@fintrack.local"
+
         user = models.User(
             id=uid,
-            email="",
+            email=email,
             name="",
             monthly_income=0
         )

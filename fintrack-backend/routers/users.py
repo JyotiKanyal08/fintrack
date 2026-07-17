@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from database import get_db
 from auth import verify_token
+from firebase_admin import auth as firebase_auth
 import models
 import schemas
 
@@ -13,11 +14,18 @@ router = APIRouter(
 def get_or_create_user(uid: str, db: Session):
     user = db.query(models.User).filter(models.User.id == uid).first()
     if not user:
-        user = models.User(id=uid, email="", name="", monthly_income=0)
+        try:
+            firebase_user = firebase_auth.get_user(uid)
+            email = firebase_user.email or f"{uid}@fintrack.local"
+        except Exception:
+            email = f"{uid}@fintrack.local"
+
+        user = models.User(id=uid, email=email, name="", monthly_income=0)
         db.add(user)
         db.commit()
         db.refresh(user)
     return user
+
 
 @router.get("/me")
 def get_current_user(
@@ -25,6 +33,7 @@ def get_current_user(
     uid: str = Depends(verify_token)
 ):
     return get_or_create_user(uid, db)
+
 
 @router.put("/onboarding")
 def complete_onboarding(
