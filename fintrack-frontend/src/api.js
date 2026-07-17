@@ -124,3 +124,9 @@ export const updateGoal = (token, id, amount) =>
     
     export const completeOnboarding = (token, monthly_income) =>
         axios.put(`${BASE}/users/onboarding`, { monthly_income }, getHeaders(token))
+
+    export const addBill = (token, data) =>
+        axios.post(`${BASE}/bills`, null,{
+            params: data,
+            headers: {Authorization: `Bearer ${token}`}
+        })

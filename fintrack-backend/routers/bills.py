@@ -5,6 +5,7 @@ from datetime import datetime
 from database import get_db
 from auth import verify_token
 import models
+import schemas
 
 router = APIRouter(
     prefix="/bills",

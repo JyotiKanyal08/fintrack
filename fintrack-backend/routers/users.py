@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+from firebase_admin import auth as firebase_auth
+
 from database import get_db
 from auth import verify_token
-from firebase_admin import auth as firebase_auth
 import models
 import schemas
 
@@ -46,4 +47,21 @@ def complete_onboarding(
     user.onboarding_completed = True
     db.commit()
     db.refresh(user)
+
+    # Seed a first income transaction so the dashboard isn't empty
+    existing_txns = db.query(models.Transaction).filter(
+        models.Transaction.user_id == uid
+    ).count()
+
+    if existing_txns == 0 and payload.monthly_income > 0:
+        seed_txn = models.Transaction(
+            user_id=uid,
+            amount=payload.monthly_income,
+            category="Salary",
+            type="income",
+            description="Monthly Income (from onboarding)"
+        )
+        db.add(seed_txn)
+        db.commit()
+
     return user

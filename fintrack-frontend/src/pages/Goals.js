@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { auth } from '../firebase'
 import {
     getGoals,
+    addGoal,
     addGoalSavings
 } from '../api'
 import Navbar from '../components/Navbar'
@@ -9,6 +10,9 @@ import Navbar from '../components/Navbar'
 export default function Goals() {
     const [goals, setGoals] = useState([])
     const [token, setToken] = useState('')
+    const [name, setName] = useState('')
+    const [targetAmount, setTargetAmount] = useState('')
+    const [deadline, setDeadline] = useState('')
 
     useEffect(() => {
         auth.onAuthStateChanged(async user => {
@@ -25,6 +29,24 @@ export default function Goals() {
             }
         })
     }, [])
+
+    const handleAddGoal = async () => {
+        if (!name || !targetAmount) return
+
+        await addGoal(token, {
+            name,
+            target_amount: parseFloat(targetAmount),
+            saved_amount: 0,
+            deadline: deadline ? new Date(deadline).toISOString() : null
+        })
+
+        const res = await getGoals(token)
+        setGoals(res.data)
+
+        setName('')
+        setTargetAmount('')
+        setDeadline('')
+    }
 
     const handleSave = async (id) => {
         const amount = prompt(
@@ -53,10 +75,53 @@ export default function Goals() {
                 style={{
                     maxWidth: 900,
                     margin: '30px auto',
-                    color: 'var(--text-primary)'
+                    color: 'var(--text-primary)',
+                    padding: '0 24px'
                 }}
             >
                 <h2>Goals</h2>
+
+                {/* Add Goal form */}
+                <div style={{
+                    background: 'var(--bg-card)', borderRadius: 12,
+                    padding: 20, marginBottom: 24,
+                    border: '1px solid var(--pink-border)'
+                }}>
+                    <h3 style={{ marginBottom: 12 }}>Add a New Goal</h3>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        <input
+                            placeholder="Goal name e.g. Emergency Fund"
+                            value={name}
+                            onChange={e => setName(e.target.value)}
+                            style={{ flex: 1, minWidth: 180 }}
+                        />
+                        <input
+                            type="number"
+                            placeholder="Target ₹"
+                            value={targetAmount}
+                            onChange={e => setTargetAmount(e.target.value)}
+                            style={{ width: 140 }}
+                        />
+                        <input
+                            type="date"
+                            value={deadline}
+                            onChange={e => setDeadline(e.target.value)}
+                        />
+                        <button
+                            onClick={handleAddGoal}
+                            className="btn-primary"
+                            style={{ padding: '8px 20px' }}
+                        >
+                            Add Goal
+                        </button>
+                    </div>
+                </div>
+
+                {goals.length === 0 && (
+                    <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
+                        No goals yet — add your first one above.
+                    </p>
+                )}
 
                 {goals.map(goal => {
                     const progress =
@@ -65,8 +130,7 @@ export default function Goals() {
                             goal.target_amount
                         ) * 100
 
-                    const daysLeft =
-                        Math.ceil(
+                    const daysLeft = goal.deadline ? Math.ceil(
                             (
                                 new Date(
                                     goal.deadline
@@ -79,7 +143,7 @@ export default function Goals() {
                                 60 *
                                 24
                             )
-                        )
+                        ) : null
 
                     return (
                         <div
@@ -141,10 +205,12 @@ export default function Goals() {
                                 % completed
                             </p>
 
-                            <p>
-                                {daysLeft}{' '}
-                                days remaining
-                            </p>
+                            {daysLeft !== null && (
+                                <p>
+                                    {daysLeft}{' '}
+                                    days remaining
+                                </p>
+                            )}
 
                             <button
                                 onClick={() =>

@@ -1,11 +1,20 @@
 import { useEffect, useState } from 'react'
 import { auth } from '../firebase'
-import { getBills, markBillPaid } from '../api'
+import { getBills, addBill, markBillPaid } from '../api'
 import Navbar from '../components/Navbar'
+
+const CATEGORIES = [
+    'Rent', 'Electricity', 'Water', 'Internet',
+    'Phone', 'Insurance', 'Subscription', 'Other'
+]
 
 export default function Bills() {
     const [bills, setBills] = useState([])
     const [token, setToken] = useState('')
+    const [name, setName] = useState('')
+    const [amount, setAmount] = useState('')
+    const [dueDay, setDueDay] = useState('')
+    const [category, setCategory] = useState('Rent')
 
     useEffect(() => {
         auth.onAuthStateChanged(async user => {
@@ -20,6 +29,24 @@ export default function Bills() {
             }
         })
     }, [])
+
+    const handleAddBill = async () => {
+        if (!name || !amount || !dueDay) return
+
+        await addBill(token, {
+            name,
+            amount: parseFloat(amount),
+            due_day: parseInt(dueDay),
+            category
+        })
+
+        const res = await getBills(token)
+        setBills(res.data)
+
+        setName('')
+        setAmount('')
+        setDueDay('')
+    }
 
     const handlePaid = async (id) => {
         await markBillPaid(token, id)
@@ -79,10 +106,60 @@ export default function Bills() {
                 style={{
                     maxWidth: 900,
                     margin: '30px auto',
-                    color: 'var(--text-primary)'
+                    color: 'var(--text-primary)',
+                    padding: '0 24px'
                 }}
             >
                 <h2>Bills</h2>
+
+                {/* Add Bill form */}
+                <div style={{
+                    background: 'var(--bg-card)', borderRadius: 12,
+                    padding: 20, marginBottom: 24,
+                    border: '1px solid var(--pink-border)'
+                }}>
+                    <h3 style={{ marginBottom: 12 }}>Add a New Bill</h3>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        <input
+                            placeholder="Bill name e.g. Electricity"
+                            value={name}
+                            onChange={e => setName(e.target.value)}
+                            style={{ flex: 1, minWidth: 180 }}
+                        />
+                        <input
+                            type="number"
+                            placeholder="Amount ₹"
+                            value={amount}
+                            onChange={e => setAmount(e.target.value)}
+                            style={{ width: 120 }}
+                        />
+                        <input
+                            type="number"
+                            placeholder="Due day (1-31)"
+                            min="1"
+                            max="31"
+                            value={dueDay}
+                            onChange={e => setDueDay(e.target.value)}
+                            style={{ width: 140 }}
+                        />
+                        <select value={category} onChange={e => setCategory(e.target.value)}>
+                            {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                        </select>
+                        <button
+                            onClick={handleAddBill}
+                            className="btn-primary"
+                            style={{ padding: '8px 20px' }}
+                        >
+                            Add Bill
+                        </button>
+                    </div>
+                </div>
+
+                {bills.length === 0 && (
+                    <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
+                        No bills yet — add your first one above.
+                    </p>
+                )}
 
                 {bills.map((bill) => (
                     <div
