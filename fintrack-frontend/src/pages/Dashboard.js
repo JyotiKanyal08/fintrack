@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { auth } from "../firebase";
-import { getHealthScore, getTransactions, getBudgetRecommendation} from "../api";
+import { getHealthScore, getTransactions, getBudgetRecommendation, getUserProfile, completeOnboarding } from "../api";
 import {BarChart, Bar, XAxis, YAxis, Tooltip, LineChart, Line, ResponsiveContainer} from "recharts";
 import HealthScore from "../components/HealthScore";
 import StatCard from "../components/StatCard";
 import Navbar from "../components/Navbar";
-import axios from "axios";
 
 function Sparkline({ data, color }) {
     if (!data || data.length < 2) return null
@@ -28,7 +27,7 @@ export default function Dashboard() {
     const [isNewUser, setIsNewUser] = useState(false);
     const [onboardingStep, setOnboardingStep] = useState(1);
     const [incomeInput, setIncomeInput] = useState('');
-
+    const [savingIncome, setSavingIncome] = useState(false);
 
     useEffect(() => {
         fetch('https://fintrack-ad7s.onrender.com/')
@@ -41,6 +40,13 @@ export default function Dashboard() {
             const token = await user.getIdToken();
             try {
 
+                const profileRes = await getUserProfile(token);
+                console.log("Profile:", profileRes.data);
+
+                if (!profileRes.data.onboarding_completed) {
+                    setIsNewUser(true);
+                }
+
                 const healthRes = await getHealthScore(token);
                 console.log("Health Score:", healthRes.data);
                 setScore(healthRes.data);
@@ -48,10 +54,6 @@ export default function Dashboard() {
                 const txnRes = await getTransactions(token);
                 console.log("Transactions:", txnRes.data);
                 setTxns(txnRes.data);
-
-                if (txnRes.data.length === 0) {
-                    setIsNewUser(true);
-                }
 
                 const budgetRes = await getBudgetRecommendation(token);
                 console.log("Recommendation:", budgetRes.data);
@@ -69,16 +71,16 @@ export default function Dashboard() {
     }, []);
 
     const handleSaveIncome = async () => {
-        const token = await auth.currentUser.getIdToken();
-        await axios.put(
-            `https://fintrack-ad7s.onrender.com/users/income`,
-            null,
-            {
-                params: { income: parseFloat(incomeInput) },
-                headers: { Authorization: `Bearer ${token}` }
-            }
-        );
-        setOnboardingStep(2);
+        setSavingIncome(true);
+        try {
+            const token = await auth.currentUser.getIdToken();
+            await completeOnboarding(token, parseFloat(incomeInput));
+            setOnboardingStep(2);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setSavingIncome(false);
+        }
     };
 
     if (isNewUser) return (
@@ -109,9 +111,13 @@ export default function Dashboard() {
                         style={{ width: '100%', padding: 12, marginBottom: 16,
                                 fontSize: 18, textAlign: 'center' }}
                     />
-                    <button onClick={handleSaveIncome} className="btn-primary"
-                        style={{ width: '100%', padding: 14, fontSize: 15 }}>
-                        Continue →
+                    <button
+                        onClick={handleSaveIncome}
+                        className="btn-primary"
+                        disabled={savingIncome || !incomeInput}
+                        style={{ width: '100%', padding: 14, fontSize: 15 }}
+                    >
+                        {savingIncome ? 'Saving...' : 'Continue →'}
                     </button>
                 </div>
             )}

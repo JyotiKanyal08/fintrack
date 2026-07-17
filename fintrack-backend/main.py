@@ -14,7 +14,8 @@ from routers import (
     budget,
     buddy,
     insights,
-    analytics
+    analytics,
+    users
 )
 
 models.Base.metadata.create_all(bind=engine)
@@ -36,7 +37,7 @@ app.include_router(budget.router)
 app.include_router(buddy.router)
 app.include_router(insights.router)
 app.include_router(analytics.router)
-
+app.include_router(users.router)
 
 @app.get("/")
 def root():

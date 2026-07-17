@@ -1,7 +1,5 @@
 import axios from 'axios';
-
 const BASE = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-
 function getHeaders(token) {
     return {
     headers: {
@@ -120,3 +118,9 @@ export const updateGoal = (token, id, amount) =>
             params: { sms_text: smsText },
             headers: { Authorization: `Bearer ${token}` }
         })
+
+    export const getUserProfile = (token) =>
+    axios.get(`${BASE}/users/me`, getHeaders(token))
+    
+    export const completeOnboarding = (token, monthly_income) =>
+        axios.put(`${BASE}/users/onboarding`, { monthly_income }, getHeaders(token))
