@@ -32,141 +32,168 @@ def spending_analytics(
     db: Session = Depends(get_db),
     uid: str = Depends(verify_token)
 ):
-    txns = db.query(models.Transaction).filter(
-        models.Transaction.user_id == uid
-    ).all()
+    try:
+        txns = db.query(models.Transaction).filter(
+            models.Transaction.user_id == uid
+        ).all()
 
-    if not txns:
-        return {"message": "No transaction data yet", "data": {}}
+        if not txns:
+            return {"message": "No transaction data yet", "data": {}}
 
-    # Build DataFrame
-    df = pd.DataFrame([{
-        "amount":      t.amount,
-        "category":    t.category,
-        "type":        t.type,
-        "description": t.description,
-        "date":        t.date
-    } for t in txns])
+        # Build DataFrame
+        df = pd.DataFrame([{
+            "amount":      t.amount,
+            "category":    t.category,
+            "type":        t.type,
+            "description": t.description,
+            "date":        t.date
+        } for t in txns])
 
-    df["date"]       = pd.to_datetime(df["date"])
-    df["month"]      = df["date"].dt.to_period("M").astype(str)
-    df["month_name"] = df["date"].dt.strftime("%b %Y")
-    df["day_name"]   = df["date"].dt.day_name()
+        df["date"]       = pd.to_datetime(df["date"])
+        df["month"]      = df["date"].dt.to_period("M").astype(str)
+        df["month_name"] = df["date"].dt.strftime("%b %Y")
+        df["day_name"]   = df["date"].dt.day_name()
 
-    expenses = df[df["type"] == "expense"].copy()
-    income   = df[df["type"] == "income"].copy()
+        expenses = df[df["type"] == "expense"].copy()
+        income   = df[df["type"] == "income"].copy()
 
-    #Use the most recent month for summary stats
-    latest_month     = df["month"].max()
-    latest_month_exp = expenses[expenses["month"] == latest_month]
-    latest_month_inc = income[income["month"] == latest_month]
-
-    this_month_income  = float(latest_month_inc["amount"].sum())
-    this_month_expense = float(latest_month_exp["amount"].sum())
-
-    savings_rate = (
-        round(((this_month_income - this_month_expense) / this_month_income) * 100, 1)
-        if this_month_income > 0
-        else 0
-    )
-
-    #Category totals (all time, for pie chart)
-    category_totals = (
-        expenses.groupby("category")["amount"]
-        .sum()
-        .round(2)
-        .sort_values(ascending=False)
-        .to_dict()
-    )
-
-    biggest_cat = max(category_totals, key=category_totals.get) if category_totals else "N/A"
-
-    #Monthly totals trend
-    monthly_totals = (
-        expenses.groupby(["month", "month_name"])["amount"]
-        .sum()
-        .round(2)
-        .reset_index()
-        .rename(columns={"amount": "total"})
-        .sort_values("month")
-        .to_dict(orient="records")
-    )
-
-    #Average monthly expense
-    avg_monthly = round(
-        float(expenses.groupby("month")["amount"].sum().mean()), 2
-    )
-
-    #Monthly spend per category 
-    monthly_category = (
-        expenses.groupby(["month", "month_name", "category"])["amount"]
-        .sum()
-        .round(2)
-        .reset_index()
-        .rename(columns={"amount": "total"})
-        .sort_values("month")
-        .to_dict(orient="records")
-    )
-
-    #Day of week pattern 
-    day_order = ["Monday", "Tuesday", "Wednesday", "Thursday",
-                "Friday", "Saturday", "Sunday"]
-    dow = (
-        expenses.groupby("day_name")["amount"]
-        .mean()
-        .round(2)
-        .reindex(day_order, fill_value=0)
-        .reset_index()
-        .rename(columns={"amount": "avg_spend"})
-        .to_dict(orient="records")
-    )
-
-    #Top 5 largest single transactions
-    top_transactions = (
-        expenses.nlargest(5, "amount")[["description", "category", "amount", "date"]]
-        .assign(date=lambda x: x["date"].dt.strftime("%d %b %Y"))
-        .to_dict(orient="records")
-    )
-
-    #Month-over-month change 
-    months = sorted(expenses["month"].unique())
-    mom_change = {}
-    if len(months) >= 2:
-        last_month = months[-1]
-        prev_month = months[-2]
-        last_spend = expenses[expenses["month"] == last_month].groupby("category")["amount"].sum()
-        prev_spend = expenses[expenses["month"] == prev_month].groupby("category")["amount"].sum()
-
-        for cat in set(last_spend.index) | set(prev_spend.index):
-            last_val = float(last_spend.get(cat, 0))
-            prev_val = float(prev_spend.get(cat, 0))
-            if prev_val > 0:
-                pct = round(((last_val - prev_val) / prev_val) * 100, 1)
-            else:
-                pct = 100.0
-            mom_change[cat] = {
-                "last_month":  round(last_val, 0),
-                "prev_month":  round(prev_val, 0),
-                "change_pct":  pct,
-                "direction":   "up" if pct > 0 else "down"
+        # If there are no expense transactions yet, return a minimal-but-valid response
+        if expenses.empty:
+            this_month_income = float(income["amount"].sum()) if not income.empty else 0.0
+            return {
+                "summary": {
+                    "total_income":        round(this_month_income, 2),
+                    "total_expense":       0.0,
+                    "avg_monthly_expense": 0.0,
+                    "savings_rate":        0.0,
+                    "biggest_category":    "N/A",
+                    "total_transactions":  0
+                },
+                "category_totals":  {},
+                "monthly_totals":   [],
+                "monthly_category": [],
+                "day_of_week":      [{"day_name": d, "avg_spend": 0} for d in
+                                    ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]],
+                "top_transactions": [],
+                "mom_change":       {}
             }
 
-    return {
-        "summary": {
-            "total_income":        round(this_month_income, 2),
-            "total_expense":       round(this_month_expense, 2),
-            "avg_monthly_expense": avg_monthly,
-            "savings_rate":        savings_rate,
-            "biggest_category":    biggest_cat,
-            "total_transactions":  len(expenses)
-        },
-        "category_totals":  category_totals,
-        "monthly_totals":   monthly_totals,
-        "monthly_category": monthly_category,
-        "day_of_week":      dow,
-        "top_transactions": top_transactions,
-        "mom_change":       mom_change
-    }
+        #Use the most recent month for summary stats
+        latest_month     = df["month"].max()
+        latest_month_exp = expenses[expenses["month"] == latest_month]
+        latest_month_inc = income[income["month"] == latest_month]
+
+        this_month_income  = float(latest_month_inc["amount"].sum())
+        this_month_expense = float(latest_month_exp["amount"].sum())
+
+        savings_rate = (
+            round(((this_month_income - this_month_expense) / this_month_income) * 100, 1)
+            if this_month_income > 0
+            else 0
+        )
+
+        #Category totals (all time, for pie chart)
+        category_totals = (
+            expenses.groupby("category")["amount"]
+            .sum()
+            .round(2)
+            .sort_values(ascending=False)
+            .to_dict()
+        )
+
+        biggest_cat = max(category_totals, key=category_totals.get) if category_totals else "N/A"
+
+        #Monthly totals trend
+        monthly_totals = (
+            expenses.groupby(["month", "month_name"])["amount"]
+            .sum()
+            .round(2)
+            .reset_index()
+            .rename(columns={"amount": "total"})
+            .sort_values("month")
+            .to_dict(orient="records")
+        )
+
+        #Average monthly expense
+        avg_monthly_series = expenses.groupby("month")["amount"].sum()
+        avg_monthly = round(float(avg_monthly_series.mean()), 2) if not avg_monthly_series.empty else 0.0
+        if avg_monthly != avg_monthly:  # NaN check
+            avg_monthly = 0.0
+
+        #Monthly spend per category 
+        monthly_category = (
+            expenses.groupby(["month", "month_name", "category"])["amount"]
+            .sum()
+            .round(2)
+            .reset_index()
+            .rename(columns={"amount": "total"})
+            .sort_values("month")
+            .to_dict(orient="records")
+        )
+
+        #Day of week pattern 
+        day_order = ["Monday", "Tuesday", "Wednesday", "Thursday",
+                    "Friday", "Saturday", "Sunday"]
+        dow = (
+            expenses.groupby("day_name")["amount"]
+            .mean()
+            .round(2)
+            .reindex(day_order, fill_value=0)
+            .reset_index()
+            .rename(columns={"amount": "avg_spend"})
+            .to_dict(orient="records")
+        )
+
+        #Top 5 largest single transactions
+        top_transactions = (
+            expenses.nlargest(5, "amount")[["description", "category", "amount", "date"]]
+            .assign(date=lambda x: x["date"].dt.strftime("%d %b %Y"))
+            .to_dict(orient="records")
+        )
+
+        #Month-over-month change 
+        months = sorted(expenses["month"].unique())
+        mom_change = {}
+        if len(months) >= 2:
+            last_month = months[-1]
+            prev_month = months[-2]
+            last_spend = expenses[expenses["month"] == last_month].groupby("category")["amount"].sum()
+            prev_spend = expenses[expenses["month"] == prev_month].groupby("category")["amount"].sum()
+
+            for cat in set(last_spend.index) | set(prev_spend.index):
+                last_val = float(last_spend.get(cat, 0))
+                prev_val = float(prev_spend.get(cat, 0))
+                if prev_val > 0:
+                    pct = round(((last_val - prev_val) / prev_val) * 100, 1)
+                else:
+                    pct = 100.0
+                mom_change[cat] = {
+                    "last_month":  round(last_val, 0),
+                    "prev_month":  round(prev_val, 0),
+                    "change_pct":  pct,
+                    "direction":   "up" if pct > 0 else "down"
+                }
+
+        return {
+            "summary": {
+                "total_income":        round(this_month_income, 2),
+                "total_expense":       round(this_month_expense, 2),
+                "avg_monthly_expense": avg_monthly,
+                "savings_rate":        savings_rate,
+                "biggest_category":    biggest_cat,
+                "total_transactions":  len(expenses)
+            },
+            "category_totals":  category_totals,
+            "monthly_totals":   monthly_totals,
+            "monthly_category": monthly_category,
+            "day_of_week":      dow,
+            "top_transactions": top_transactions,
+            "mom_change":       mom_change
+        }
+
+    except Exception as e:
+        print("ERROR in /analytics/spending:", str(e))
+        return {"message": "No transaction data yet", "data": {}}
     
 #Expense Predictor
 @router.get("/predict")
