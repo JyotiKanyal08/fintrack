@@ -42,8 +42,13 @@ export const getGoals = (token) =>
 export const addBill = (token, data) =>
     axios.post(
         `${BASE}/bills`,
-        data,
-        getHeaders(token)
+        null,
+        {
+            params: data,
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        }
     )
 
 export const updateBill = (token, id) =>
@@ -119,14 +124,12 @@ export const updateGoal = (token, id, amount) =>
             headers: { Authorization: `Bearer ${token}` }
         })
 
-    export const getUserProfile = (token) =>
+export const getUserProfile = (token) =>
     axios.get(`${BASE}/users/me`, getHeaders(token))
-    
-    export const completeOnboarding = (token, monthly_income) =>
-        axios.put(`${BASE}/users/onboarding`, { monthly_income }, getHeaders(token))
 
-    export const addBill = (token, data) =>
-        axios.post(`${BASE}/bills`, null,{
-            params: data,
-            headers: {Authorization: `Bearer ${token}`}
-        })
+export const completeOnboarding = (token, monthly_income) =>
+    axios.put(
+        `${BASE}/users/onboarding`,
+        { monthly_income },
+        getHeaders(token)
+    )
