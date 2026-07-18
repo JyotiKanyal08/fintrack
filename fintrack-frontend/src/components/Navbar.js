@@ -1,8 +1,9 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { auth } from '../firebase'
 
 export default function Navbar() {
     const location = useLocation()
+    const navigate = useNavigate()
 
     const linkStyle = (path) => ({
         color: location.pathname === path ? 'var(--pink-primary)' : 'var(--text-muted)',
@@ -13,6 +14,11 @@ export default function Navbar() {
         paddingBottom: 2,
         transition: 'all 0.2s'
     })
+
+    const handleLogout = async () => {
+        await auth.signOut()
+        navigate('/')
+    }
 
     return (
         <nav style={{
@@ -48,7 +54,7 @@ export default function Navbar() {
             <Link to="/insights"     style={linkStyle('/insights')}>Insights</Link>
 
             <button
-                onClick={() => auth.signOut()}
+                onClick={handleLogout}
                 style={{
                     marginLeft: 'auto',
                     background: 'none',
