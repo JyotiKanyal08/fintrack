@@ -3,6 +3,7 @@
 FinTrack is a personal finance web app built to help newly employed people track spending, understand their financial habits, record their transactions and make better money decisions using data science and machine learning.
 
 **Live app:** https://fintrack-smoky-one.vercel.app/
+
 **Backend API docs:** https://fintrack-ad7s.onrender.com
 
 > Try it instantly with the **Explore Demo** button on the login page — no signup needed, preloaded with 3 months of sample data.
