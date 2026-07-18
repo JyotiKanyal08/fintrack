@@ -383,108 +383,120 @@ def feature_engineering(
     db: Session = Depends(get_db),
     uid: str = Depends(verify_token)
     ):
-    txns = db.query(models.Transaction).filter(
-        models.Transaction.user_id == uid
-        ).all()
+    try:
+        txns = db.query(models.Transaction).filter(
+            models.Transaction.user_id == uid
+            ).all()
 
-    if not txns:
+        if not txns:
+            return {"message": "No transaction data yet"}
+
+        df = pd.DataFrame([{
+            "amount":   t.amount,
+            "category": t.category,
+            "type":     t.type,
+            "date":     t.date
+        } for t in txns])
+
+        df["date"]  = pd.to_datetime(df["date"])
+        df["month"] = df["date"].dt.to_period("M").astype(str)
+
+        expenses = df[df["type"] == "expense"].copy()
+        income   = df[df["type"] == "income"].copy()
+
+        if expenses.empty:
+            return {"message": "No expense data yet"}
+
+        monthly_expense = expenses.groupby("month")["amount"].sum().sort_index()
+        monthly_income  = income.groupby("month")["amount"].sum().sort_index()
+
+        all_months = sorted(set(monthly_expense.index) | set(monthly_income.index))
+        monthly_expense = monthly_expense.reindex(all_months, fill_value=0)
+        monthly_income  = monthly_income.reindex(all_months, fill_value=0)
+
+        rolling_avg = monthly_expense.rolling(3, min_periods=1).mean().round(2)
+
+        savings_rate = ((monthly_income - monthly_expense) / monthly_income.replace(0, np.nan) * 100).round(2)
+
+        savings_velocity = savings_rate.diff().round(2)
+
+        expense_ratio = (monthly_expense / monthly_income.replace(0, np.nan) * 100).round(2)
+
+        category_monthly = (
+            expenses.groupby(["month", "category"])["amount"]
+            .sum()
+            .unstack(fill_value=0)
+        )
+        volatility = {}
+        for cat in category_monthly.columns:
+            std  = float(category_monthly[cat].std())
+            mean = float(category_monthly[cat].mean())
+            std  = safe_float(std, 0)
+            mean = safe_float(mean, 0)
+            cv   = round((std / mean) * 100, 1) if mean > 0 else 0
+            volatility[cat] = {
+                "std":              std,
+                "mean":             mean,
+                "coefficient_of_variation": safe_float(cv, 0),
+                "stability":        "stable" if cv < 20 else "moderate" if cv < 50 else "volatile"
+            }
+
+        inc_mean = safe_float(monthly_income.mean(), 0)
+        inc_std  = safe_float(monthly_income.std(), 0)
+        income_stability = round(
+            max(0, 1 - (inc_std / inc_mean)), 3
+        ) if inc_mean > 0 else 0
+
+        avg_expense_ratio = safe_float(expense_ratio.mean(), 0)
+        avg_savings_rate  = safe_float(savings_rate.mean(), 0)
+        avg_volatility    = safe_float(
+            sum(v["coefficient_of_variation"] for v in volatility.values()) /
+            len(volatility)
+            if volatility else 0,
+            0
+        )
+
+        stress_index = round(
+            (avg_expense_ratio * 0.5) +
+            (max(0, 100 - avg_savings_rate) * 0.3) +
+            (min(avg_volatility, 100) * 0.2),
+            1
+        )
+
+        biggest_month     = str(monthly_expense.idxmax()) if not monthly_expense.empty else "N/A"
+        biggest_month_amt = safe_float(monthly_expense.max(), 0) if not monthly_expense.empty else 0
+
+        mom_growth = monthly_expense.pct_change().mul(100).round(2)
+
+        time_series = []
+        for m in all_months:
+            time_series.append({
+                "month":            m,
+                "month_label":      pd.to_datetime(m + "-01").strftime("%b %Y"),
+                "expense":          safe_float(monthly_expense.get(m, 0)),
+                "income":           safe_float(monthly_income.get(m, 0)),
+                "rolling_avg":      safe_float(rolling_avg.get(m, 0)),
+                "savings_rate":     safe_float(savings_rate.get(m, 0)),
+                "savings_velocity": safe_float(savings_velocity.get(m, 0)),
+                "expense_ratio":    safe_float(expense_ratio.get(m, 0)),
+                "mom_growth":       safe_float(mom_growth.get(m, 0)),
+            })
+
+        return {
+            "time_series": time_series,
+            "volatility":  volatility,
+            "summary_features": {
+                "income_stability_score": safe_float(income_stability, 0),
+                "financial_stress_index": safe_float(stress_index, 0),
+                "avg_savings_rate":       avg_savings_rate,
+                "avg_expense_ratio":      avg_expense_ratio,
+                "biggest_spending_month": biggest_month,
+                "biggest_month_amount":   biggest_month_amt,
+                "total_months_tracked":   len(all_months),
+                "avg_monthly_volatility": avg_volatility
+            }
+        }
+
+    except Exception as e:
+        print("ERROR in /analytics/features:", str(e))
         return {"message": "No transaction data yet"}
-
-    df = pd.DataFrame([{
-        "amount":   t.amount,
-        "category": t.category,
-        "type":     t.type,
-        "date":     t.date
-    } for t in txns])
-
-    df["date"]  = pd.to_datetime(df["date"])
-    df["month"] = df["date"].dt.to_period("M").astype(str)
-
-    expenses = df[df["type"] == "expense"].copy()
-    income   = df[df["type"] == "income"].copy()
-
-    monthly_expense = expenses.groupby("month")["amount"].sum().sort_index()
-    monthly_income  = income.groupby("month")["amount"].sum().sort_index()
-
-    all_months = sorted(set(monthly_expense.index) | set(monthly_income.index))
-    monthly_expense = monthly_expense.reindex(all_months, fill_value=0)
-    monthly_income  = monthly_income.reindex(all_months, fill_value=0)
-
-    rolling_avg = monthly_expense.rolling(3, min_periods=1).mean().round(2)
-
-    savings_rate = ((monthly_income - monthly_expense) / monthly_income.replace(0, np.nan) * 100).round(2)
-
-    savings_velocity = savings_rate.diff().round(2)
-
-    expense_ratio = (monthly_expense / monthly_income.replace(0, np.nan) * 100).round(2)
-
-    category_monthly = (
-        expenses.groupby(["month", "category"])["amount"]
-        .sum()
-        .unstack(fill_value=0)
-    )
-    volatility = {}
-    for cat in category_monthly.columns:
-        std  = float(category_monthly[cat].std())
-        mean = float(category_monthly[cat].mean())
-        cv   = round((std / mean) * 100, 1) if mean > 0 else 0
-        volatility[cat] = {
-            "std":              round(std, 2),
-            "mean":             round(mean, 2),
-            "coefficient_of_variation": cv,
-            "stability":        "stable" if cv < 20 else "moderate" if cv < 50 else "volatile"
-        }
-
-    inc_mean = float(monthly_income.mean())
-    inc_std  = float(monthly_income.std())
-    income_stability = round(
-        max(0, 1 - (inc_std / inc_mean)), 3
-    ) if inc_mean > 0 else 0
-
-    avg_expense_ratio = float(expense_ratio.mean())
-    avg_savings_rate  = float(savings_rate.mean())
-    avg_volatility    = float(
-        sum(v["coefficient_of_variation"] for v in volatility.values()) /
-        len(volatility)
-    ) if volatility else 0
-
-    stress_index = round(
-        (avg_expense_ratio * 0.5) +
-        (max(0, 100 - avg_savings_rate) * 0.3) +
-        (min(avg_volatility, 100) * 0.2),
-        1
-    )
-
-    biggest_month     = str(monthly_expense.idxmax())
-    biggest_month_amt = float(monthly_expense.max())
-
-    mom_growth = monthly_expense.pct_change().mul(100).round(2)
-    
-    time_series = []
-    for m in all_months:
-        time_series.append({
-            "month":            m,
-            "month_label":      pd.to_datetime(m + "-01").strftime("%b %Y"),
-            "expense":          safe_float(monthly_expense.get(m, 0)),
-            "income":           safe_float(monthly_income.get(m, 0)),
-            "rolling_avg":      safe_float(rolling_avg.get(m, 0)),
-            "savings_rate":     safe_float(savings_rate.get(m, 0)),
-            "savings_velocity": safe_float(savings_velocity.get(m, 0)),
-            "expense_ratio":    safe_float(expense_ratio.get(m, 0)),
-            "mom_growth":       safe_float(mom_growth.get(m, 0)),
-        }),
-
-    return {
-        "time_series": time_series,
-        "volatility":  volatility,
-        "summary_features": {
-            "income_stability_score": income_stability,
-            "financial_stress_index": stress_index,
-            "avg_savings_rate":       avg_savings_rate,
-            "avg_expense_ratio":      avg_expense_ratio,
-            "biggest_spending_month": biggest_month,
-            "biggest_month_amount":   round(biggest_month_amt, 2),
-            "total_months_tracked":   len(all_months),
-            "avg_monthly_volatility": round(avg_volatility, 2)
-        }
-    }
