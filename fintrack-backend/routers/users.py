@@ -48,7 +48,6 @@ def complete_onboarding(
     db.commit()
     db.refresh(user)
 
-    # Seed a first income transaction so the dashboard isn't empty
     existing_txns = db.query(models.Transaction).filter(
         models.Transaction.user_id == uid
     ).count()

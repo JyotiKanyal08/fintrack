@@ -5,6 +5,7 @@ from datetime import datetime
 from database import get_db
 from auth import verify_token
 import models
+import schemas
 
 router = APIRouter(
     prefix="/goals",
@@ -14,19 +15,16 @@ router = APIRouter(
 
 @router.post("/")
 def add_goal(
-    name: str,
-    target_amount: float,
-    saved_amount: float = 0,
-    deadline: datetime = None,
+    payload: schemas.GoalCreate,
     db: Session = Depends(get_db),
     uid: str = Depends(verify_token)
 ):
     goal = models.Goal(
         user_id=uid,
-        name=name,
-        target_amount=target_amount,
-        deadline=deadline,
-        saved_amount=saved_amount
+        name=payload.name,
+        target_amount=payload.target_amount,
+        deadline=payload.deadline,
+        saved_amount=payload.saved_amount
     )
 
     db.add(goal)
