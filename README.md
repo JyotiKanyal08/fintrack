@@ -1,10 +1,10 @@
 # 💰 FinTrack — Personal Finance Companion
 
-FinTrack is a personal finance web app built to help newly employed people track spending, understand their financial habits, record their transactions and make better money decisions using data science and machine learning.
+FinTrack is a personal finance web app built to help newly employed people track spending, understand their financial habits, and make better money decisions using data science and machine learning.
 
-**Live app:** https://fintrack-smoky-one.vercel.app/
+**Live app:**  https://fintrack-smoky-one.vercel.app/
 
-**Backend API docs:** https://fintrack-ad7s.onrender.com
+**Backend API docs:** https://fintrack-smoky-one.vercel.app/
 
 > Try it instantly with the **Explore Demo** button on the login page — no signup needed, preloaded with 3 months of sample data.
 
@@ -27,6 +27,37 @@ Becoming financially independent for the first time is exciting — and stressfu
 - **ML Expense Predictor** — per-category next-month spending forecasts using Random Forest / Linear Regression depending on available history, with confidence scoring
 - **Feature Engineering Dashboard** — derived signals (income stability score, financial stress index, spending volatility) explained in plain language
 - **AI Buddy** — Gemini-powered chat for financial questions grounded in the user's own data
+
+---
+
+## Screenshots
+
+### Login
+![Login](screenshots/login.png)
+
+### Dashboard
+![Dashboard](screenshots/dashboard.png)
+
+### Transactions
+![Transactions](screenshots/transactions.png)
+
+### Bills
+![Bills](screenshots/bills.png)
+
+### Goals
+![Goals](screenshots/goals.png)
+
+### Spending Analytics
+![Analytics](screenshots/analytics.png)
+
+### AI Buddy
+![AI Buddy](screenshots/buddy.png)
+
+### Expense Predictor
+![Predictor](screenshots/predictor.png)
+
+### Feature Engineering Insights
+![Insights](screenshots/insights.png)
 
 ---
 
@@ -87,7 +118,6 @@ REACT_APP_FIREBASE_API_KEY=your_firebase_web_api_key
 
 ---
 
-
 ## What I'd improve next
 
 - Add SIP and mutual fund tracking so users can monitor investments alongside their spending and savings
@@ -101,3 +131,4 @@ REACT_APP_FIREBASE_API_KEY=your_firebase_web_api_key
 ## Author
 
 Built by Jyoti Kanyal, B.Tech Computer Science (Data Science & Analytics), DIT University.
+
